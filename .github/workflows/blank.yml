@@ -19,12 +19,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: build archive
-        run: |
-          xcodebuild -scheme "I am Groot" \
-          -archivePath $RUNNER_TEMP/iamgroot.xcarchive \
-          -sdk iphoneos \
-          -configuration Debug \
-          -destination generic/platform=iOS \
-          clean archive
+        run: xcodebuild --help
+        
       - name: echo
         run: printf "Hello macos"
