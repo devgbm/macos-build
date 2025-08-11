@@ -10,16 +10,61 @@ jobs:
   build_with_signing:
     runs-on: macos-latest
     steps:
-      # this was more debug as was curious what came pre-installed
-      # GitHub shares this online, e.g. https://github.com/actions/runner-images/blob/macOS-12/20230224.1/images/macos/macos-12-Readme.md
-      - name: check Xcode version
-        run: /usr/bin/xcodebuild -version
 
       - name: checkout repository
         uses: actions/checkout@v3
 
-      - name: build archive
-        run: xcodebuild --help
-        
-      - name: echo
-        run: printf "Hello macos"
+      # Cache para acelerar
+      - name: Cache Flutter
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            ${{ runner.tool_cache }}/flutter
+          key: ${{ runner.os }}-flutter-${{ hashFiles('pubspec.lock') }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # - name: Build iOS (sem assinatura)
+      #   run: |
+      #     flutter build ios --debug
+
+      - name: Build iOS debug
+        run: |
+          flutter build ios --release --no-codesign
+
+      # Para builds assinados (requer certificados)
+      # - name: Build iOS com assinatura
+      #   run: |
+      #     flutter build ios --release
+      #   env:
+      #     MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      #     FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APP_SPECIFIC_PASSWORD }}
+      
+      # - name: Build IPA
+      #   run: |
+      #     cd ios
+      #     xcodebuild -workspace Runner.xcworkspace \
+      #               -scheme Runner \
+      #               -configuration Release \
+      #               -destination generic/platform=iOS \
+      #               -archivePath build/Runner.xcarchive \
+      #               archive
+          
+      #     xcodebuild -exportArchive \
+      #               -archivePath build/Runner.xcarchive \
+      #               -exportPath build \
+      #               -exportOptionsPlist ExportOptions.plist
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: ios/build/*.ipa
