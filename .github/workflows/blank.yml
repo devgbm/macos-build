@@ -14,18 +14,7 @@ jobs:
       - name: checkout repository
         uses: actions/checkout@v3
 
-      # Cache para acelerar
-      - name: Cache Flutter
-        uses: actions/cache@v4
-        id: flutter-cache
-        with:
-          path: |
-            ~/.pub-cache
-            ${{ runner.tool_cache }}/flutter
-          key: ${{ runner.os }}-flutter-${{ hashFiles('pubspec.lock') }}
-
       - name: Setup Flutter
-        if: steps.flutter-cache.outputs.cache-hit != 'true'
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.32.8'
