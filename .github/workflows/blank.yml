@@ -1,7 +1,9 @@
-name: iOS Build
+name: iOS Build - Signed IPA
 
 on:
-  workflow_dispatch
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,7 +18,7 @@ jobs:
         node-version: '20'
     
     - name: Install dependencies
-      run: npm install
+      run: npm ci
     
     - name: Build web assets
       run: npm run build
@@ -24,19 +26,62 @@ jobs:
     - name: Sync Capacitor
       run: npx cap sync ios
     
-    - name: Build iOS
+    # - name: Setup certificates and provisioning profile
+    #   env:
+    #     BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+    #     P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+    #     BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+    #     KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+    #   run: |
+    #     # Criar paths temporários
+    #     CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+    #     PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+    #     KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+    #     # Decodificar certificado e provisioning profile
+    #     echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+    #     echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+
+    #     # Criar keychain temporário
+    #     security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+    #     security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+    #     security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+    #     # Importar certificado
+    #     security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+    #     security list-keychain -d user -s $KEYCHAIN_PATH
+
+    #     # Instalar provisioning profile
+    #     mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+    #     cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+    
+    - name: Build and archive
       run: |
         cd ios/App
         xcodebuild archive \
           -workspace App.xcworkspace \
           -scheme App \
           -archivePath ./build/App.xcarchive \
-          -configuration Release
-
-    # Upload do IPA como artefato
-    - name: Upload IPA Artifact
-      uses: actions/upload-artifact@v4
+          -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+    
+    - name: Export IPA
+      run: |
+        cd ios/App
+        xcodebuild -exportArchive \
+          -archivePath ./build/App.xcarchive \
+          -exportPath ./build \
+          -exportOptionsPlist exportOptions.plist \
+          -allowProvisioningUpdates
+    
+    - name: Upload IPA
+      uses: actions/upload-artifact@v3
       with:
-        name: app-release-${{ github.run_number }}
+        name: app-ios-${{ github.run_number }}
         path: ios/App/build/*.ipa
         retention-days: 1
+    
+    # - name: Cleanup
+    #   if: always()
+    #   run: |
+    #     security delete-keychain $RUNNER_TEMP/app-signing.keychain-db || true
+    #     rm -rf ~/Library/MobileDevice/Provisioning\ Profiles || true
