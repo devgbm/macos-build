@@ -1,0 +1,42 @@
+name: iOS Build
+
+on:
+  workflow_dispatch
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Build web assets
+      run: npm run build
+    
+    - name: Sync Capacitor
+      run: npx cap sync ios
+    
+    - name: Build iOS
+      run: |
+        cd ios/App
+        xcodebuild archive \
+          -workspace App.xcworkspace \
+          -scheme App \
+          -archivePath ./build/App.xcarchive \
+          -configuration Release
+
+    # Upload do IPA como artefato
+    - name: Upload IPA Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: app-release-${{ github.run_number }}
+        path: ios/App/build/*.ipa
+        retention-days: 1
